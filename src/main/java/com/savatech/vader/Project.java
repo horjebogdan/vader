@@ -34,7 +34,10 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 	private static final String SLICES = "slices";
 	private static final String TEXT = "vader.txt";
 
-	public static File projectFile(File folder) {
+	public static boolean isProjectFile(File file) {
+		return file.getName().equals(VADER_PRJ);
+	}
+	public static File projectFileFrom(File folder) {
 		return new File(folder, VADER_PRJ);
 	}
 

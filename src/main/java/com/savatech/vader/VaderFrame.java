@@ -27,7 +27,6 @@ import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
@@ -41,10 +40,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
-import javax.swing.UIManager;
 import javax.swing.filechooser.FileFilter;
-import javax.swing.filechooser.FileView;
-import javax.swing.plaf.FileChooserUI;
 import javax.swing.text.BadLocationException;
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
@@ -81,7 +77,7 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	private ImageIcon imageVader;
 
 	public VaderFrame() throws IOException {
-		super("Vader 0.0.2"); // invoke the JFrame constructor
+		super("Vader 0.0.3"); // invoke the JFrame constructor
 
 		BufferedImage darthPng = ImageIO.read(ClassLoader.getSystemResource("dvi16.png"));
 		setIconImage(darthPng);
@@ -325,20 +321,19 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	private void openProject() {
 		JFileChooser fc = new JFileChooser();
 		fc.setDialogTitle("Choose project folder");
-		fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 		fc.setFileFilter(new FileFilter() {
 
 			@Override
 			public String getDescription() {
-				return "Project folders";
+				return "Project files";
 			}
 
 			@Override
 			public boolean accept(File f) {
-				return Project.projectFile(f).exists();
+				return Project.isProjectFile(f);
 			}
 		});
-		final FileView defview = ((FileChooserUI) UIManager.getDefaults().getUI(fc)).getFileView(fc);
+		/*final FileView defview = ((FileChooserUI) UIManager.getDefaults().getUI(fc)).getFileView(fc);
 		fc.setFileView(new FileView() {
 			@Override
 			public String getDescription(File f) {
@@ -363,10 +358,10 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 			public Boolean isTraversable(File f) {
 				return defview.isTraversable(f);
 			}
-		});
+		});*/
 		int r = fc.showOpenDialog(this);
 		if (r == JFileChooser.APPROVE_OPTION) {
-			File file = fc.getSelectedFile();
+			File file = fc.getSelectedFile().getParentFile();
 			try {
 				open(new Project(file.toPath()));
 			} catch (IOException e) {
