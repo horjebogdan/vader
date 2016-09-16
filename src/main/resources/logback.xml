@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<configuration scan="true" scanPeriod="10 seconds">
+	<appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+		<layout class="ch.qos.logback.classic.PatternLayout">
+			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n
+			</pattern>
+		</layout>
+	</appender>
+
+	<appender name="milliroller"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>log/output.log</file>
+		<layout class="ch.qos.logback.classic.PatternLayout">
+			<pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n
+			</pattern>
+		</layout>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<fileNamePattern>log/mylog-%d{yyyy-MM-dd}.%i.txt</fileNamePattern>
+			<timeBasedFileNamingAndTriggeringPolicy
+				class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>1KB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+		</rollingPolicy>
+	</appender>
+
+	<root level="DEBUG">
+		<appender-ref ref="stdout" />
+		<appender-ref ref="milliroller" />
+	</root>
+
+	<logger name="com.tkassembled.logback" level="DEBUG" />
+</configuration>
