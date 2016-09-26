@@ -3,6 +3,8 @@ package com.savatech.vader;
 import java.awt.AWTKeyStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -19,6 +21,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -75,6 +79,9 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	private JLabel vaderIconLabel;
 	private ImageIcon imageWait;
 	private ImageIcon imageVader;
+	private JLabel lastSaved;
+	private JLabel lastBackedup;
+	private JPanel dirtyPanel;
 
 	public VaderFrame() throws IOException {
 		super("Vader 0.0.3"); // invoke the JFrame constructor
@@ -145,6 +152,9 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 		});
 		c.gridy++;
 		add(progressPanel, c);
+		
+		c.gridy++;
+		add(buildDocInfoPanel(), c);
 
 		c.fill = GridBagConstraints.BOTH;
 		c.gridy++;
@@ -154,6 +164,23 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 		registerKeys();
 		updateKeyHelp();
 
+	}
+
+	private Component buildDocInfoPanel() {
+		JPanel panel=new JPanel(new FlowLayout(FlowLayout.LEFT));
+		
+		dirtyPanel=new JPanel();
+		dirtyPanel.setPreferredSize(new Dimension(20,30));
+		dirtyPanel.setOpaque(true);
+		dirtyPanel.setBackground(Color.GREEN);
+		panel.add(dirtyPanel);
+		lastSaved=new JLabel("Saved @ "+LocalDate.now()+" "+LocalTime.now());
+		lastSaved.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+		lastBackedup=new JLabel("Backedup @ "+LocalDate.now()+" "+LocalTime.now());
+		lastBackedup.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+		panel.add(lastSaved);
+		panel.add(lastBackedup);
+		return panel;
 	}
 
 	private void registerKeys() {
@@ -309,7 +336,25 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 		save.getAccessibleContext().setAccessibleDescription("Save project");
 		project.add(save);
 
+		JMenuItem export = new JMenuItem("Export to doc", KeyEvent.VK_E);
+		export.addActionListener(new AbstractAction() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				VaderFrame.this.exportToDoc();
+			}
+		});
+		export.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, ActionEvent.ALT_MASK));
+		export.getAccessibleContext().setAccessibleDescription("Export to doc");
+		project.add(export);
+
 		return newMenuBar;
+	}
+
+	protected void exportToDoc() {
+		if (this.project != null) {
+			this.project.export();
+		}
 	}
 
 	protected void saveProject() {
@@ -333,32 +378,24 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 				return Project.isProjectFile(f);
 			}
 		});
-		/*final FileView defview = ((FileChooserUI) UIManager.getDefaults().getUI(fc)).getFileView(fc);
-		fc.setFileView(new FileView() {
-			@Override
-			public String getDescription(File f) {
-				return defview.getDescription(f);
-			}
-
-			@Override
-			public Icon getIcon(File f) {
-				if (Project.projectFile(f).exists()) {
-					return VaderFrame.this.darthIcon;
-				} else {
-					return defview.getIcon(f);
-				}
-			}
-
-			@Override
-			public String getTypeDescription(File f) {
-				return defview.getTypeDescription(f);
-			}
-
-			@Override
-			public Boolean isTraversable(File f) {
-				return defview.isTraversable(f);
-			}
-		});*/
+		/*
+		 * final FileView defview = ((FileChooserUI)
+		 * UIManager.getDefaults().getUI(fc)).getFileView(fc);
+		 * fc.setFileView(new FileView() {
+		 * 
+		 * @Override public String getDescription(File f) { return
+		 * defview.getDescription(f); }
+		 * 
+		 * @Override public Icon getIcon(File f) { if
+		 * (Project.projectFile(f).exists()) { return VaderFrame.this.darthIcon;
+		 * } else { return defview.getIcon(f); } }
+		 * 
+		 * @Override public String getTypeDescription(File f) { return
+		 * defview.getTypeDescription(f); }
+		 * 
+		 * @Override public Boolean isTraversable(File f) { return
+		 * defview.isTraversable(f); } });
+		 */
 		int r = fc.showOpenDialog(this);
 		if (r == JFileChooser.APPROVE_OPTION) {
 			File file = fc.getSelectedFile().getParentFile();
@@ -440,19 +477,26 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	public VaderFrame open(Project project) {
 		if (this.project != null) {
 			this.project.removeObserver(this);
+			this.project.close();
 		}
+		
 
 		buildUI();
 
 		this.project = project;
 		this.project.setTextDocument(editorPane.getDocument());
 		this.project.addObserver(this);
+		
 		return this;
 	}
+
+	
 
 	@Override
 	public void updateInfo(Project project, String info) {
 		this.info.setText(info);
+		Color dirtyColor = project.isDirty()?Color.RED:Color.GREEN;
+		this.dirtyPanel.setBackground(dirtyColor);
 	}
 
 	@Override

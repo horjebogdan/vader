@@ -8,6 +8,17 @@ public class Timestamp {
 
 	private long microseconds;
 
+	private static long[] parse(String stamp) {
+		String[] se = stamp.split(":");
+		int h = Integer.parseInt(se[0]);
+		int m = Integer.parseInt(se[1]);
+		String[] sse = se[2].split("\\.");
+		int secs = Integer.parseInt(sse[0]);
+		int millis = Integer.parseInt(sse[1]);
+		long fullm = millis + secs * 1000 + m * 60 * 1000 + h * 60 * 60 * 1000;
+		return new long[] { fullm, millis, secs, m, h };
+	}
+
 	public static final Timestamp in(String text, int at) {
 		int ei = -1;
 		while (at >= 0) {
@@ -21,14 +32,8 @@ public class Timestamp {
 				if (s.startsWith("@")) {
 					try {
 						s = s.substring(1);
-						String[] se = s.split(":");
-						int h = Integer.parseInt(se[0]);
-						int m = Integer.parseInt(se[1]);
-						String[] sse = se[2].split("\\.");
-						int secs = Integer.parseInt(sse[0]);
-						int millis = Integer.parseInt(sse[1]);
-						long fullm = millis + secs * 1000 + m * 60 * 1000 + h * 60 * 60 * 1000;
-						return new Timestamp(fullm);
+						long[] t = parse(s);
+						return new Timestamp(t[0]);
 					} catch (Exception e) {
 						logger.error("Bad stamp", e);
 						e.printStackTrace();
@@ -41,6 +46,46 @@ public class Timestamp {
 		return null;
 	}
 
+	public static String formatTimeStamps(String text) {
+		StringBuilder f = new StringBuilder();
+		int l = text.length();
+		for (int i = 0; i < l; i++) {
+			char c = text.charAt(i);
+			StringBuilder b = new StringBuilder();
+			if ('[' == c) {
+				while (c != ']' && i < l) {
+					b.append(c);
+					i++;
+					c = text.charAt(i);
+				}
+				b.append(c);
+				if (c == ']' && b.length() == 15) {
+					String ts = b.substring(2, 14);
+					try {
+						long[] time = parse(ts);
+						if (time[4]>0){
+							f.append("Ora ");
+							f.append(time[4]);
+							f.append(" minutul ");
+						}
+						else {
+							f.append("Minutul ");
+						}
+						f.append(""+time[3]+":"+time[2]);
+					} catch (Exception e) {
+						f.append(b);
+					}
+				} else {
+					f.append(b);
+				}
+			} else {
+				f.append(c);
+			}
+		}
+		
+		return f.toString();
+	}
+
 	public Timestamp(long microseconds) {
 		super();
 		this.microseconds = microseconds;
@@ -49,7 +94,7 @@ public class Timestamp {
 	public long getMicroseconds() {
 		return microseconds;
 	}
-	
+
 	public String getStampText() {
 		return "[@" + TimeUitls.formatMillis(microseconds / 1000) + "]";
 	}

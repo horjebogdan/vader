@@ -14,6 +14,8 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
@@ -24,6 +26,12 @@ import com.savatech.vader.Player.PlayerObeserver;
 
 public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 
+	private static final int BACKUP_SAVE_INT = 10;
+
+	private static final int BACKUP_ROLL_COUNT = 10;
+
+	private static final String BAK = "bak";
+
 	private static final Logger logger = LoggerFactory.getLogger(Project.class);
 
 	private static final DecimalFormat SPEED_FORMAT = new DecimalFormat("#####.##");
@@ -33,10 +41,14 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 	private static final String VADER_PRJ = "vader.prj";
 	private static final String SLICES = "slices";
 	private static final String TEXT = "vader.txt";
+	private static final String DOC = "vader.docx";
+
+	private Exporter exporter = new DocxExporter();
 
 	public static boolean isProjectFile(File file) {
 		return file.getName().equals(VADER_PRJ);
 	}
+
 	public static File projectFileFrom(File folder) {
 		return new File(folder, VADER_PRJ);
 	}
@@ -72,6 +84,15 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 
 	private Document doc;
 
+	private boolean open;
+
+	private DocumentListener docListener;
+
+	private boolean dirty;
+
+	private int saveCount;
+	private int backupCount;
+
 	public Project(Path path) throws IOException {
 		this(path, null);
 	}
@@ -85,6 +106,13 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		this.player.setPlayback(this.inPath, 1f);
 		if (ui != null) {
 			addObserver(ui);
+		}
+		this.open = true;
+
+		for (backupCount = 1; backupCount < BACKUP_ROLL_COUNT; backupCount++) {
+			if (!backPath(backupCount).toFile().exists()) {
+				break;
+			}
 		}
 	}
 
@@ -118,7 +146,6 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		fireUpdateInfo();
 		at(0, 0);
 	}
-
 
 	private synchronized void fireUpdateInfo() {
 		getObserver().updateInfo(this, getInfo());
@@ -186,8 +213,7 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 
 	public void skip(long seconds) {
 		this.player.skipAt(seconds);
-		if (!this.isAutoPause() && this.player.isPaused())
-		{
+		if (!this.isAutoPause() && this.player.isPaused()) {
 			this.player.togglePause();
 		}
 		fireUpdateInfo();
@@ -236,7 +262,7 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 			this.player.togglePause();
 			this.lastPause = i;
 		} else if (!this.autoPause) {
-			this.lastPause=i;
+			this.lastPause = i;
 		}
 		getObserver().playing("slice " + i + " ", ams, ms);
 	}
@@ -249,9 +275,9 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		if (skip > this.lastPause) {
 			this.lastPause = skip;
 		}
-		
-		this.lastPause=skip;
-		
+
+		this.lastPause = skip;
+
 		skip(slices.get(skip).start / 1000);
 		if (this.player.isPaused() && isAutoPause()) {
 			this.player.togglePause();
@@ -271,8 +297,8 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 	public void setTextDocument(Document doc) {
 		this.doc = doc;
 		File txtf = this.path.resolve(TEXT).toFile();
-		if (!txtf.exists()){
-			logger.info("Set no text document for "+txtf.getAbsolutePath());
+		if (!txtf.exists()) {
+			logger.info("Set no text document for " + txtf.getAbsolutePath());
 			return;
 		}
 		try {
@@ -283,6 +309,37 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 			logger.error("Could not read " + txtf.getAbsolutePath(), e);
 		}
 
+		this.docListener = new DocumentListener() {
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				Project.this.dirty();
+			}
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				Project.this.dirty();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				Project.this.dirty();
+			}
+		};
+
+		this.doc.addDocumentListener(this.docListener);
+
+	}
+
+	protected void dirty() {
+		if (!this.dirty) {
+			this.dirty = true;
+			fireUpdateInfo();
+		}
+	}
+
+	public boolean isDirty() {
+		return this.dirty;
 	}
 
 	public void save() {
@@ -290,18 +347,79 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		this.doc.render(this::safeSave);
 	}
 
-	private void safeSave() {
+	private synchronized void safeSave() {
 		File txtf = this.path.resolve(TEXT).toFile();
-		try (FileOutputStream fos = new FileOutputStream(txtf); PrintStream ps = new PrintStream(fos)) {
+		internalSave(txtf);
+		saveCount++;
+		if (saveCount % BACKUP_SAVE_INT == 0) {
+			saveCount = 1;
+			backupCount++;
+			int backupNo = backupCount % BACKUP_ROLL_COUNT;
+			backup(backupNo);
+		}
+	}
 
+	private void internalSave(File f) {
+		try (FileOutputStream fos = new FileOutputStream(f); PrintStream ps = new PrintStream(fos)) {
 			int l = doc.getLength();
 			String s = doc.getText(0, l);
 			ps.print(s);
 			ps.flush();
-			logger.info("Sucessfuly saved text to " + txtf.getAbsolutePath());
+			this.dirty = false;
+			fireUpdateInfo();
+			logger.info("Sucessfuly saved text to " + f.getAbsolutePath());
 		} catch (Exception e) {
 			logger.error("Could not save project " + this.path, e);
 		}
 	}
 
+	public void export() {
+		logger.info("Saving " + this.path);
+		this.doc.render(this::safeExport);
+	}
+
+	private void safeExport() {
+		File docf = this.path.resolve(DOC).toFile();
+		safeExport(docf);
+	}
+
+	private void safeExport(File f) {
+		try {
+			int l = doc.getLength();
+			String text= doc.getText(0, l);
+			exporter.export(f, text);
+		} catch (BadLocationException e) {
+			logger.error("Error exporting "+f,e);
+		}
+	}
+
+	public boolean isOpen() {
+		return this.open;
+	}
+
+	public void close() {
+		this.open = false;
+	}
+
+	public synchronized void backup() {
+		long time = System.currentTimeMillis();
+		backup(time);
+	}
+
+	public synchronized void backup(long backup) {
+		Path bakFile = backPath(backup);
+		internalSave(bakFile.toFile());
+	}
+
+	private Path backPath(long backup) {
+		Path bakFolderPath = this.path.resolve(BAK);
+		File bakFolder = bakFolderPath.toFile();
+		bakFolder.mkdirs();
+		Path bakFile = bakFolderPath.resolve(backupFileName(backup));
+		return bakFile;
+	}
+
+	private String backupFileName(long backup) {
+		return "b" + backup + ".txt";
+	}
 }
