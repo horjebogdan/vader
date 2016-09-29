@@ -360,11 +360,11 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 	}
 
 	private void internalSave(File f) {
-		try (FileOutputStream fos = new FileOutputStream(f); PrintStream ps = new PrintStream(fos)) {
+		try (FileOutputStream fos = new FileOutputStream(f)) {
 			int l = doc.getLength();
 			String s = doc.getText(0, l);
-			ps.print(s);
-			ps.flush();
+			byte[] b = s.getBytes();
+			fos.write(b);
 			this.dirty = false;
 			fireUpdateInfo();
 			logger.info("Sucessfuly saved text to " + f.getAbsolutePath());
