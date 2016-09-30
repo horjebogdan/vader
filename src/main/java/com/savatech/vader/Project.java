@@ -304,7 +304,7 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		try {
 			byte[] bytes = Files.readAllBytes(txtf.toPath());
 			doc.remove(0, doc.getLength());
-			doc.insertString(0, new String(bytes), null);
+			doc.insertString(0, new String(bytes,"UTF-8"), null);
 		} catch (IOException | BadLocationException e) {
 			logger.error("Could not read " + txtf.getAbsolutePath(), e);
 		}
@@ -363,8 +363,9 @@ public class Project extends Model<ProjectObserver> implements PlayerObeserver {
 		try (FileOutputStream fos = new FileOutputStream(f)) {
 			int l = doc.getLength();
 			String s = doc.getText(0, l);
-			byte[] b = s.getBytes();
+			byte[] b = s.getBytes("UTF-8");
 			fos.write(b);
+			fos.flush();
 			this.dirty = false;
 			fireUpdateInfo();
 			logger.info("Sucessfuly saved text to " + f.getAbsolutePath());

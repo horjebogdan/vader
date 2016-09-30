@@ -44,6 +44,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.KeyStroke;
+import javax.swing.UIManager;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.undo.CannotRedoException;
@@ -84,7 +85,7 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	private JPanel dirtyPanel;
 
 	public VaderFrame() throws IOException {
-		super("Vader 0.0.3"); // invoke the JFrame constructor
+		super("Vader 0.1.0"); // invoke the JFrame constructor
 
 		BufferedImage darthPng = ImageIO.read(ClassLoader.getSystemResource("dvi16.png"));
 		setIconImage(darthPng);
@@ -152,7 +153,7 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 		});
 		c.gridy++;
 		add(progressPanel, c);
-		
+
 		c.gridy++;
 		add(buildDocInfoPanel(), c);
 
@@ -167,16 +168,16 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	}
 
 	private Component buildDocInfoPanel() {
-		JPanel panel=new JPanel(new FlowLayout(FlowLayout.LEFT));
-		
-		dirtyPanel=new JPanel();
-		dirtyPanel.setPreferredSize(new Dimension(20,30));
+		JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
+		dirtyPanel = new JPanel();
+		dirtyPanel.setPreferredSize(new Dimension(20, 30));
 		dirtyPanel.setOpaque(true);
 		dirtyPanel.setBackground(Color.GREEN);
 		panel.add(dirtyPanel);
-		lastSaved=new JLabel("Saved @ "+LocalDate.now()+" "+LocalTime.now());
+		lastSaved = new JLabel("Saved @ " + LocalDate.now() + " " + LocalTime.now());
 		lastSaved.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-		lastBackedup=new JLabel("Backedup @ "+LocalDate.now()+" "+LocalTime.now());
+		lastBackedup = new JLabel("Backedup @ " + LocalDate.now() + " " + LocalTime.now());
 		lastBackedup.setBorder(BorderFactory.createLineBorder(Color.BLACK));
 		panel.add(lastSaved);
 		panel.add(lastBackedup);
@@ -287,6 +288,7 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 		editorPane.registerKeyboardAction(redoAction,
 				KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_MASK | InputEvent.SHIFT_MASK),
 				JComponent.WHEN_FOCUSED);
+		editorPane.setFont(new Font("monospaced", Font.PLAIN, 16));
 		JScrollPane editorScrollPane = new JScrollPane(editorPane);
 		editorScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		return editorScrollPane;
@@ -378,24 +380,7 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 				return Project.isProjectFile(f);
 			}
 		});
-		/*
-		 * final FileView defview = ((FileChooserUI)
-		 * UIManager.getDefaults().getUI(fc)).getFileView(fc);
-		 * fc.setFileView(new FileView() {
-		 * 
-		 * @Override public String getDescription(File f) { return
-		 * defview.getDescription(f); }
-		 * 
-		 * @Override public Icon getIcon(File f) { if
-		 * (Project.projectFile(f).exists()) { return VaderFrame.this.darthIcon;
-		 * } else { return defview.getIcon(f); } }
-		 * 
-		 * @Override public String getTypeDescription(File f) { return
-		 * defview.getTypeDescription(f); }
-		 * 
-		 * @Override public Boolean isTraversable(File f) { return
-		 * defview.isTraversable(f); } });
-		 */
+
 		int r = fc.showOpenDialog(this);
 		if (r == JFileChooser.APPROVE_OPTION) {
 			File file = fc.getSelectedFile().getParentFile();
@@ -413,8 +398,10 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 	}
 
 	private void newProject() {
-
+		Boolean old = UIManager.getBoolean("FileChooser.readOnly");
+		UIManager.put("FileChooser.readOnly", Boolean.TRUE);
 		JFileChooser fc = new JFileChooser();
+		UIManager.put("FileChooser.readOnly", old);
 		fc.setDialogTitle("Choose file to import");
 		fc.setFileFilter(new FileFilter() {
 
@@ -479,23 +466,20 @@ public class VaderFrame extends JFrame implements ProjectObserver {
 			this.project.removeObserver(this);
 			this.project.close();
 		}
-		
 
 		buildUI();
 
 		this.project = project;
 		this.project.setTextDocument(editorPane.getDocument());
 		this.project.addObserver(this);
-		
+
 		return this;
 	}
-
-	
 
 	@Override
 	public void updateInfo(Project project, String info) {
 		this.info.setText(info);
-		Color dirtyColor = project.isDirty()?Color.RED:Color.GREEN;
+		Color dirtyColor = project.isDirty() ? Color.RED : Color.GREEN;
 		this.dirtyPanel.setBackground(dirtyColor);
 	}
 
